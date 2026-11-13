@@ -10,7 +10,7 @@ The system SHALL ship default settings that load without any user-supplied file 
 
 #### Scenario: Load defaults
 - **WHEN** settings are loaded with no override file and no environment overrides
-- **THEN** loading succeeds and the project key is `VE_CAE` and the team filter is `Structural Analysis`
+- **THEN** loading succeeds and the project key is `CAE` and the team filter is `Structural Analysis`
 
 #### Scenario: Confirmed field IDs
 - **WHEN** the field mapping is read from the defaults
@@ -94,3 +94,63 @@ Loaded settings SHALL be immutable for the lifetime of the application.
 #### Scenario: Modification rejected
 - **WHEN** code assigns a new value to a loaded setting
 - **THEN** the assignment fails with an error
+
+### Requirement: Issue hierarchy settings
+The system SHALL externalise the request issue types (default Epic, Risk, Issue), the task types (default Task), the Epic type (default Epic), the Epic Link field (default `customfield_10001`), and the link phrases that identify a parent: for tasks default "is child of", for Risks and Issues default "is caused by". Phrases match the direction text shown in Jira, case-insensitively.
+
+#### Scenario: Default issue types
+- **WHEN** defaults are loaded
+- **THEN** the request types are Epic, Risk and Issue, the task type is Task and the Epic type is Epic
+
+#### Scenario: Epic Link and link phrases
+- **WHEN** defaults are loaded
+- **THEN** the Epic Link field is `customfield_10001`, the task parent phrase is `is child of` and the request parent phrase is `is caused by`
+
+#### Scenario: Mentions is not a default
+- **WHEN** defaults are loaded
+- **THEN** no parent phrase is `mentions` or `is mentioned by`
+
+#### Scenario: Overlapping types rejected
+- **WHEN** an issue type is configured as both a request type and a task type
+- **THEN** loading fails and the error names the type
+
+#### Scenario: Old combined setting rejected
+- **WHEN** an override still sets the former single link phrase list
+- **THEN** loading fails and the error names that key
+
+### Requirement: Team identification
+The system SHALL externalise the team's name (default `Structural Analysis`) and its numeric Jira team ID (default 400), which is what the team field is matched by. The ID MUST be a positive integer.
+
+#### Scenario: Team defaults
+- **WHEN** defaults are loaded
+- **THEN** the team name is `Structural Analysis` and the team ID is 400
+
+#### Scenario: Invalid team ID
+- **WHEN** the team ID is set to 0 or a negative number
+- **THEN** loading fails
+
+### Requirement: Retrieval settings
+The system SHALL externalise the search page size (default 100, between 1 and 1000), the maximum number of retries for transient failures (default 2, not negative) and the closed-ticket look-back in days (default 30, not negative).
+
+#### Scenario: Retrieval defaults
+- **WHEN** defaults are loaded
+- **THEN** the page size is 100, the maximum retries is 2 and the look-back is 30 days
+
+#### Scenario: Page size out of range
+- **WHEN** the page size is set to 0 or 5000
+- **THEN** loading fails
+
+#### Scenario: Negative values rejected
+- **WHEN** the maximum retries or the look-back is negative
+- **THEN** loading fails
+
+### Requirement: Data quality settings
+The system SHALL externalise the issue types excluded from the dashboard (default Sub-task) and the link phrases that mark a wrong Epic link on a Risk or Issue (defaults "is child of" and "created by"), matched case-insensitively against the direction text Jira shows.
+
+#### Scenario: Data quality defaults
+- **WHEN** defaults are loaded
+- **THEN** the excluded type is Sub-task and the wrong Epic link phrases are `is child of` and `created by`
+
+#### Scenario: Correct phrase is not a wrong phrase
+- **WHEN** defaults are loaded
+- **THEN** `is caused by` is not among the wrong Epic link phrases

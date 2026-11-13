@@ -18,15 +18,15 @@ The project SHALL declare Python 3.15 or newer as its minimum supported version,
 - **THEN** installation succeeds
 
 ### Requirement: Source layout
-The application code SHALL live in a single `jira_dashboard` package under `src/`, with sub-packages for models, services, integrations, configuration and utilities. Sub-packages for future capabilities MUST NOT be created before they have content.
+The application code SHALL live in a single `jira_dashboard` package under `src/`, with sub-packages for models, services, integrations, configuration, utilities and the user interface. Sub-packages for future capabilities MUST NOT be created before they have content.
 
 #### Scenario: Package is importable
 - **WHEN** `jira_dashboard` is imported in the project environment
-- **THEN** the import succeeds and each MVP-0 sub-package is importable
+- **THEN** the import succeeds and each sub-package is importable
 
 #### Scenario: No premature folders
 - **WHEN** the `src/jira_dashboard` tree is listed
-- **THEN** it contains no `skills`, `agents`, `workflows`, `ui` or `database` directories
+- **THEN** it contains no `skills`, `agents`, `workflows` or `database` directories
 
 ### Requirement: Test harness
 The project SHALL provide a test suite organised into unit and integration directories that runs with a single documented command.

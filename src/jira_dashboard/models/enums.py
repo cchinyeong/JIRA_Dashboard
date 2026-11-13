@@ -12,13 +12,16 @@ class TicketStatus(StrEnum):
     PLANNED = "PLANNED"
     IN_PROGRESS = "IN_PROGRESS"
     CLOSED = "CLOSED"
+    UNKNOWN = "UNKNOWN"
 
     @classmethod
-    def from_jira(cls, name: str) -> TicketStatus:
+    def from_jira(cls, name: str | None) -> TicketStatus:
+        if name is None:
+            return cls.UNKNOWN
         try:
             return cls(_normalise(name))
         except ValueError:
-            raise ValueError(f"Unsupported Jira status: {name!r}") from None
+            return cls.UNKNOWN
 
 
 class TicketKind(StrEnum):

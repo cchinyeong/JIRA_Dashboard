@@ -36,7 +36,11 @@ class JiraSettings(_Section):
     base_url: str
     project_key: str
     team: str
+    team_id: int = Field(gt=0)
     timeout_seconds: int = Field(gt=0)
+    page_size: int = Field(ge=1, le=1000)
+    max_retries: int = Field(ge=0)
+    closed_lookback_days: int = Field(ge=0)
 
     @field_validator("base_url")
     @classmethod
@@ -76,7 +80,11 @@ class RequesterTemplate(_Section):
 class IssueSettings(_Section):
     request_types: tuple[str, ...]
     task_types: tuple[str, ...]
-    parent_link_phrases: tuple[str, ...]
+    epic_type: str
+    task_parent_phrases: tuple[str, ...]
+    request_parent_phrases: tuple[str, ...]
+    request_wrong_epic_phrases: tuple[str, ...]
+    excluded_types: tuple[str, ...]
 
     @model_validator(mode="after")
     def _no_overlap(self) -> IssueSettings:

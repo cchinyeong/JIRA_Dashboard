@@ -1,2 +1,4 @@
 def main() -> None:
-    print("jira-dashboard")
+    from jira_dashboard.ui.app import run
+
+    raise SystemExit(run())

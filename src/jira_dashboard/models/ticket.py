@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from jira_dashboard.models.enums import Domain, TicketKind, TicketStatus
+from jira_dashboard.models.finding import Finding
 from jira_dashboard.models.project import Project
 from jira_dashboard.models.sprint import Sprint
 from jira_dashboard.models.user import User
@@ -34,6 +35,8 @@ class Ticket:
     jira_url: str | None = None
     kind: TicketKind = TicketKind.OTHER
     parent_key: str | None = None
+    raw_status: str | None = None
+    findings: tuple[Finding, ...] = ()
 
     @property
     def is_blocked(self) -> bool:

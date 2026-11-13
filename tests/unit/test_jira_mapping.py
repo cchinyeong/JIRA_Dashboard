@@ -18,7 +18,7 @@ from jira_dashboard.integrations.jira_mapping import (
     parse_timestamp,
     seconds_to_days,
 )
-from jira_dashboard.models import Domain, TicketKind, TicketStatus
+from jira_dashboard.models import Domain, FindingCode, TicketKind, TicketStatus
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -137,14 +137,65 @@ def test_parent_epic_link_wins(settings) -> None:
     ("direction", "phrase", "issue_type", "expected"),
     [
         ("inward", "is child of", "Risk", "CAE-1558"),
-        ("outward", "Is Caused By", "Issue", "CAE-1558"),
+        ("outward", "Is Child Of", "Issue", "CAE-1558"),
+        ("inward", "is caused by", "Risk", None),
+        ("inward", "mentions", "Risk", None),
         ("inward", "relates to", "Risk", None),
         ("inward", "is child of", "Task", None),
+        ("inward", "is child of", "Epic", None),
     ],
 )
 def test_parent_from_links(direction, phrase, issue_type, expected, settings) -> None:
     fields = {"issuelinks": [link("CAE-1558", issue_type, direction, phrase)]}
     assert map_parent(fields, TicketKind.TASK, settings) == expected
+
+
+@pytest.mark.parametrize("own_type", ["Risk", "Issue"])
+def test_risk_or_issue_caused_by_epic(own_type, settings) -> None:
+    fields = {
+        "issuetype": {"name": own_type},
+        "issuelinks": [link("CAE-1513", "Epic", "inward", "is caused by")],
+    }
+    assert map_parent(fields, TicketKind.REQUEST, settings) == "CAE-1513"
+
+
+@pytest.mark.parametrize(
+    ("phrase", "target"),
+    [("is child of", "Epic"), ("is caused by", "Risk"), ("mentions", "Epic")],
+)
+def test_request_ignores_other_links(phrase, target, settings) -> None:
+    fields = {
+        "issuetype": {"name": "Risk"},
+        "issuelinks": [link("CAE-1", target, "inward", phrase)],
+    }
+    assert map_parent(fields, TicketKind.REQUEST, settings) is None
+
+
+def test_epic_never_has_a_parent(settings) -> None:
+    fields = {
+        "issuetype": {"name": "Epic"},
+        "issuelinks": [link("CAE-1", "Epic", "inward", "is caused by")],
+    }
+    assert map_parent(fields, TicketKind.REQUEST, settings) is None
+
+
+def mention(key, issue_type, direction):
+    phrase = {"inward": "is mentioned by", "outward": "mentions"}[direction]
+    return link(key, issue_type, direction, phrase)
+
+
+def test_mentions_never_define_a_parent(settings) -> None:
+    risk = {
+        "issuetype": {"name": "Risk"},
+        "issuelinks": [
+            mention("LDT-1497", "Issue", "outward"),
+            mention("LDT-1597", "Issue", "outward"),
+            mention("CAE-1559", "Task", "inward"),
+        ],
+    }
+    task = {"issuetype": {"name": "Task"}, "issuelinks": [mention("CAE-1558", "Risk", "outward")]}
+    assert map_parent(risk, TicketKind.REQUEST, settings) is None
+    assert map_parent(task, TicketKind.TASK, settings) is None
 
 
 def test_parent_lowest_key_and_requests_have_none(settings) -> None:
@@ -206,20 +257,77 @@ def test_reconfigured_field_id(settings) -> None:
     assert map_issue(payload, changed).target_end_date == date(2026, 12, 1)
 
 
-def test_unsupported_status_names_ticket(settings) -> None:
+def test_unsupported_status_maps_to_unknown(settings) -> None:
     payload = load("issue_cae_1558.json")
-    payload["fields"]["status"]["name"] = "IMPLEMENTED"
+    payload["fields"]["status"]["name"] = "Implemented"
+    ticket = map_issue(payload, settings)
+    assert ticket.status is TicketStatus.UNKNOWN
+    assert ticket.raw_status == "Implemented"
+    assert ticket.summary and ticket.target_end_date == date(2026, 11, 11)
+
+
+def test_official_status_keeps_raw_name(settings) -> None:
+    ticket = map_issue(load("issue_cae_1558.json"), settings)
+    assert ticket.status is TicketStatus.IN_PROGRESS
+    assert ticket.raw_status == "In Progress"
+
+
+@pytest.mark.parametrize("missing", ["project", "summary"])
+def test_unusable_payload_names_ticket(missing, settings) -> None:
+    payload = load("issue_cae_1558.json")
+    del payload["fields"][missing]
     with pytest.raises(TicketMappingError) as info:
         map_issue(payload, settings)
     assert info.value.key == "CAE-1558"
     assert "CAE-1558" in str(info.value)
 
 
-def test_missing_required_field_names_ticket(settings) -> None:
+def test_missing_key_or_fields_is_an_error(settings) -> None:
+    with pytest.raises(TicketMappingError):
+        map_issue({"fields": {}}, settings)
+    with pytest.raises(TicketMappingError, match="CAE-1"):
+        map_issue({"key": "CAE-1"}, settings)
+
+
+def test_missing_optional_fields_map_as_unknown(settings) -> None:
+    payload = load("task_risk_link.json")
+    for name in ("priority", "assignee", "reporter", "customfield_10000", "timeoriginalestimate"):
+        payload["fields"].pop(name, None)
+    payload["fields"].pop("status")
+    ticket = map_issue(payload, settings)
+    assert ticket.priority is None and ticket.assignee is None and ticket.sprint is None
+    assert ticket.estimated_effort is None
+    assert ticket.status is TicketStatus.UNKNOWN and ticket.raw_status is None
+
+
+def test_invalid_target_end_is_unknown_with_finding(settings) -> None:
     payload = load("issue_cae_1558.json")
-    del payload["fields"]["summary"]
-    with pytest.raises(TicketMappingError, match="CAE-1558"):
-        map_issue(payload, settings)
+    payload["fields"]["customfield_12113"] = "31/13/2026"
+    ticket = map_issue(payload, settings)
+    assert ticket.target_end_date is None
+    assert ticket.target_start_date == date(2026, 10, 30)
+    invalid = [f for f in ticket.findings if f.code is FindingCode.INVALID_VALUE]
+    assert [f.field for f in invalid] == ["target end"]
+    assert "31/13" not in invalid[0].message
+
+
+def test_invalid_timestamp_and_estimate_keep_the_ticket(settings) -> None:
+    payload = load("task_epic_link.json")
+    payload["fields"]["created"] = "yesterday"
+    payload["fields"]["timeoriginalestimate"] = "four days"
+    ticket = map_issue(payload, settings)
+    assert ticket.created_date is None and ticket.estimated_effort is None
+    assert ticket.remaining_effort == 4.0
+    fields = {f.field for f in ticket.findings if f.code is FindingCode.INVALID_VALUE}
+    assert fields == {"created", "estimate"}
+
+
+def test_unreadable_sprint_has_no_sprint_and_a_finding(settings) -> None:
+    payload = load("task_epic_link.json")
+    payload["fields"]["customfield_10000"] = ["not a sprint at all"]
+    ticket = map_issue(payload, settings)
+    assert ticket.sprint is None
+    assert any(f.field == "sprint" for f in ticket.findings)
 
 
 def test_payload_unchanged(settings) -> None:

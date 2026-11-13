@@ -1,11 +1,21 @@
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import date, datetime
 from typing import Any
 
 from jira_dashboard.config.settings import IssueSettings, RequesterTemplate, Settings
+from jira_dashboard.integrations.jira_findings import (
+    iter_links,
+    sort_findings,
+    status_finding,
+    task_parent_finding,
+    wrong_epic_link_findings,
+)
 from jira_dashboard.models import (
     Domain,
+    Finding,
+    FindingCode,
     Project,
     Sprint,
     Ticket,
@@ -14,7 +24,6 @@ from jira_dashboard.models import (
     User,
 )
 
-LINK_PARENT_TYPES = frozenset({"risk", "issue"})
 _LEGACY_PAIR = re.compile(r"(\w+)=(.*?)(?=,\w+=|$)", re.DOTALL)
 _TRAILING_PUNCTUATION = ".,;:"
 
@@ -113,26 +122,33 @@ def map_kind(issue_type: str | None, issues: IssueSettings) -> TicketKind:
     return TicketKind.OTHER
 
 
-def map_parent(fields: Mapping[str, Any], kind: TicketKind, settings: Settings) -> str | None:
-    if kind is not TicketKind.TASK:
-        return None
-    epic_field = settings.fields.epic_link
-    epic_key = fields.get(epic_field) if epic_field else None
-    if isinstance(epic_key, str) and epic_key.strip():
-        return epic_key.strip()
+def _linked_keys(
+    fields: Mapping[str, Any], phrases: Sequence[str], target_types: set[str]
+) -> list[str]:
+    wanted = {phrase.lower() for phrase in phrases}
+    return [
+        link.key
+        for link in iter_links(fields)
+        if link.phrase.lower() in wanted and link.issue_type.lower() in target_types
+    ]
 
-    phrases = {p.lower() for p in settings.issues.parent_link_phrases}
-    candidates: list[str] = []
-    for link in fields.get("issuelinks") or []:
-        if "inwardIssue" in link:
-            other, phrase = link["inwardIssue"], link["type"]["inward"]
-        elif "outwardIssue" in link:
-            other, phrase = link["outwardIssue"], link["type"]["outward"]
-        else:
-            continue
-        other_type = other.get("fields", {}).get("issuetype", {}).get("name", "")
-        if phrase.lower() in phrases and other_type.lower() in LINK_PARENT_TYPES:
-            candidates.append(other["key"])
+
+def map_parent(fields: Mapping[str, Any], kind: TicketKind, settings: Settings) -> str | None:
+    issues = settings.issues
+    epic_type = issues.epic_type.lower()
+    own_type = ((fields.get("issuetype") or {}).get("name") or "").lower()
+
+    if kind is TicketKind.TASK:
+        epic_field = settings.fields.epic_link
+        epic_key = fields.get(epic_field) if epic_field else None
+        if isinstance(epic_key, str) and epic_key.strip():
+            return epic_key.strip()
+        targets = {t.lower() for t in issues.request_types} - {epic_type}
+        candidates = _linked_keys(fields, issues.task_parent_phrases, targets)
+    elif kind is TicketKind.REQUEST and own_type != epic_type:
+        candidates = _linked_keys(fields, issues.request_parent_phrases, {epic_type})
+    else:
+        return None
     return min(candidates) if candidates else None
 
 
@@ -150,11 +166,28 @@ def map_issue(payload: Mapping[str, Any], settings: Settings) -> Ticket:
         raise TicketMappingError(key, f"{type(exc).__name__}: {exc}") from exc
 
 
+def _read(parser, value: Any, field_name: str, findings: list[Finding]) -> Any:
+    """Parse a value; on failure return None (unknown) and record an INVALID_VALUE finding."""
+    try:
+        return parser(value)
+    except ValueError, TypeError, KeyError, AttributeError, IndexError:
+        findings.append(
+            Finding(
+                FindingCode.INVALID_VALUE,
+                f"The {field_name} value could not be read",
+                field=field_name,
+                suggestion=f"Correct the {field_name} in Jira",
+            )
+        )
+        return None
+
+
 def _map_issue(payload: Mapping[str, Any], settings: Settings) -> Ticket:
     key = payload["key"]
     fields = payload["fields"]
     ids = settings.fields
     hours = settings.working_time.hours_per_day
+    findings: list[Finding] = []
 
     simulation = fields.get(ids.simulation_type)
     simulation_text = simulation.get("value") if isinstance(simulation, Mapping) else simulation
@@ -162,12 +195,25 @@ def _map_issue(payload: Mapping[str, Any], settings: Settings) -> Ticket:
     kind = map_kind(issue_type, settings.issues)
     description = fields.get("description")
     project = fields["project"]
+    summary = fields["summary"]
+    raw_status = (fields.get("status") or {}).get("name")
+    status = TicketStatus.from_jira(raw_status)
+    parent_key = map_parent(fields, kind, settings)
 
-    return Ticket(
+    ticket_findings = [
+        status_finding(status, raw_status),
+        task_parent_finding(kind, parent_key),
+        *wrong_epic_link_findings(fields, kind, issue_type, settings),
+    ]
+
+    def days(value: Any) -> float | None:
+        return seconds_to_days(value, hours)
+
+    ticket = Ticket(
         jira_key=key,
-        summary=fields["summary"],
+        summary=summary,
         project=Project(key=project["key"], name=project.get("name", project["key"])),
-        status=TicketStatus.from_jira(fields["status"]["name"]),
+        status=status,
         description=description,
         issue_type=issue_type,
         domain=Domain.from_simulation_type(simulation_text),
@@ -176,14 +222,17 @@ def _map_issue(payload: Mapping[str, Any], settings: Settings) -> Ticket:
         reporter=map_user(fields.get("reporter")),
         requester=extract_requester(description, settings.requester),
         priority=(fields.get("priority") or {}).get("name"),
-        target_start_date=parse_date(fields.get(ids.target_start)),
-        target_end_date=parse_date(fields.get(ids.target_end)),
-        created_date=parse_timestamp(fields.get("created")),
-        updated_date=parse_timestamp(fields.get("updated")),
-        sprint=parse_sprint(fields.get(ids.sprint)),
-        estimated_effort=seconds_to_days(fields.get(ids.estimated_effort), hours),
-        remaining_effort=seconds_to_days(fields.get(ids.remaining_effort), hours),
+        target_start_date=_read(parse_date, fields.get(ids.target_start), "target start", findings),
+        target_end_date=_read(parse_date, fields.get(ids.target_end), "target end", findings),
+        created_date=_read(parse_timestamp, fields.get("created"), "created", findings),
+        updated_date=_read(parse_timestamp, fields.get("updated"), "updated", findings),
+        sprint=_read(parse_sprint, fields.get(ids.sprint), "sprint", findings),
+        estimated_effort=_read(days, fields.get(ids.estimated_effort), "estimate", findings),
+        remaining_effort=_read(days, fields.get(ids.remaining_effort), "remaining", findings),
         jira_url=f"{settings.jira.base_url}/browse/{key}",
         kind=kind,
-        parent_key=map_parent(fields, kind, settings),
+        parent_key=parent_key,
+        raw_status=raw_status,
     )
+    all_findings = [f for f in ticket_findings if f is not None] + findings
+    return replace(ticket, findings=sort_findings(all_findings))

@@ -5,6 +5,8 @@ import pytest
 
 from jira_dashboard.models import (
     Domain,
+    Finding,
+    FindingCode,
     Project,
     Sprint,
     Ticket,
@@ -34,14 +36,40 @@ def test_status_in_progress_with_space() -> None:
     assert TicketStatus.from_jira("In Progress") is TicketStatus.IN_PROGRESS
 
 
-def test_status_rejects_implemented() -> None:
-    with pytest.raises(ValueError):
-        TicketStatus.from_jira("IMPLEMENTED")
+def test_unsupported_status_is_unknown_not_an_error() -> None:
+    assert TicketStatus.from_jira("IMPLEMENTED") is TicketStatus.UNKNOWN
+    assert TicketStatus.from_jira("Implemented") is TicketStatus.UNKNOWN
+    assert TicketStatus.from_jira(None) is TicketStatus.UNKNOWN
 
 
 def test_status_and_role_membership() -> None:
-    assert len(TicketStatus) == 6
+    official = {s for s in TicketStatus if s is not TicketStatus.UNKNOWN}
+    assert len(official) == 6
+    assert len(TicketStatus) == 7
     assert {r.name for r in UserRole} == {"PROJECT_LEAD", "DOMAIN_LEAD", "DOMAIN_ENGINEER"}
+
+
+def test_unknown_status_is_not_blocked() -> None:
+    assert make_ticket(status=TicketStatus.UNKNOWN).is_blocked is False
+
+
+def test_raw_status_and_findings_defaults() -> None:
+    ticket = make_ticket()
+    assert ticket.raw_status is None
+    assert ticket.findings == ()
+    unknown = make_ticket(status=TicketStatus.UNKNOWN, raw_status="Implemented")
+    assert unknown.raw_status == "Implemented"
+
+
+def test_findings_are_immutable_and_carried() -> None:
+    finding = Finding(FindingCode.TASK_WITHOUT_PARENT, "No parent")
+    ticket = make_ticket(findings=(finding,))
+    assert ticket.findings == (finding,)
+    assert (finding.field, finding.related_key, finding.suggestion) == (None, None, None)
+    with pytest.raises(FrozenInstanceError):
+        ticket.findings = ()
+    with pytest.raises(FrozenInstanceError):
+        finding.message = "changed"
 
 
 @pytest.mark.parametrize("text", [None, "", "None", "  none "])

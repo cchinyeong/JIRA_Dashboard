@@ -12,4 +12,6 @@ uv run ruff format --check   # format check
 uv run jira-dashboard        # run the application
 ```
 
+See [docs/dashboard.md](docs/dashboard.md) for the window, its columns and what to do when a refresh fails.
+
 Never commit credentials. Local secrets and overrides belong in `.env` or `*.local.toml`, both git-ignored.

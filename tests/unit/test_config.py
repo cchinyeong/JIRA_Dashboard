@@ -20,7 +20,7 @@ def write_local(tmp_path, text: str, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_defaults() -> None:
     s = get_settings()
-    assert s.jira.project_key == "VE_CAE"
+    assert s.jira.project_key == "CAE"
     assert s.jira.team == "Structural Analysis"
     assert s.fields.target_start == "customfield_12112"
     assert s.fields.target_end == "customfield_12113"
@@ -47,7 +47,7 @@ def test_placeholder_url(tmp_path, monkeypatch) -> None:
     s = get_settings()
     assert s.jira.base_url == "https://jira.example.com"
     assert not s.jira.is_placeholder
-    assert s.jira.project_key == "VE_CAE"
+    assert s.jira.project_key == "CAE"
 
 
 def test_env_beats_file(tmp_path, monkeypatch) -> None:
@@ -93,12 +93,77 @@ def test_settings_immutable() -> None:
         s.jira.project_key = "X"
 
 
+def test_retrieval_defaults() -> None:
+    jira = get_settings().jira
+    assert (jira.page_size, jira.max_retries, jira.closed_lookback_days) == (100, 2, 30)
+
+
+def test_team_defaults() -> None:
+    jira = get_settings().jira
+    assert (jira.team, jira.team_id) == ("Structural Analysis", 400)
+
+
+@pytest.mark.parametrize("value", [0, -5])
+def test_team_id_must_be_positive(value, tmp_path, monkeypatch) -> None:
+    write_local(tmp_path, f"[jira]\nteam_id = {value}\n", monkeypatch)
+    with pytest.raises(ValidationError):
+        get_settings()
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["page_size = 0", "page_size = 5000", "max_retries = -1", "closed_lookback_days = -1"],
+)
+def test_retrieval_settings_validated(line, tmp_path, monkeypatch) -> None:
+    write_local(tmp_path, f"[jira]\n{line}\n", monkeypatch)
+    with pytest.raises(ValidationError):
+        get_settings()
+
+
+def test_retrieval_boundaries_accepted(tmp_path, monkeypatch) -> None:
+    text = "[jira]\npage_size = 1000\nmax_retries = 0\nclosed_lookback_days = 0\n"
+    write_local(tmp_path, text, monkeypatch)
+    jira = get_settings().jira
+    assert (jira.page_size, jira.max_retries, jira.closed_lookback_days) == (1000, 0, 0)
+
+
 def test_issue_hierarchy_defaults() -> None:
     s = get_settings()
     assert s.issues.request_types == ("Epic", "Risk", "Issue")
     assert s.issues.task_types == ("Task",)
-    assert s.issues.parent_link_phrases == ("is child of", "is caused by")
+    assert s.issues.epic_type == "Epic"
+    assert s.issues.task_parent_phrases == ("is child of",)
+    assert s.issues.request_parent_phrases == ("is caused by",)
     assert s.fields.epic_link == "customfield_10001"
+
+
+def test_data_quality_defaults() -> None:
+    issues = get_settings().issues
+    assert issues.excluded_types == ("Sub-task",)
+    assert issues.request_wrong_epic_phrases == ("is child of", "created by")
+    wrong = {p.lower() for p in issues.request_wrong_epic_phrases}
+    assert not wrong & {p.lower() for p in issues.request_parent_phrases}
+
+
+def test_mentions_is_not_a_parent_phrase() -> None:
+    issues = get_settings().issues
+    phrases = {p.lower() for p in (*issues.task_parent_phrases, *issues.request_parent_phrases)}
+    assert not phrases & {"mentions", "is mentioned by"}
+
+
+def test_old_combined_phrase_key_rejected(tmp_path, monkeypatch) -> None:
+    write_local(tmp_path, '[issues]\nparent_link_phrases = ["is child of"]\n', monkeypatch)
+    with pytest.raises(ValidationError, match="parent_link_phrases"):
+        get_settings()
+
+
+def test_documented_override_loads(tmp_path, monkeypatch) -> None:
+    write_local(
+        tmp_path,
+        '[issues]\ntask_parent_phrases = ["is child of", "is part of"]\n',
+        monkeypatch,
+    )
+    assert get_settings().issues.task_parent_phrases == ("is child of", "is part of")
 
 
 def test_overlapping_issue_types_rejected(tmp_path, monkeypatch) -> None:

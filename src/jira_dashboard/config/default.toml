@@ -1,8 +1,12 @@
 [jira]
 base_url = "https://jira.invalid"
-project_key = "VE_CAE"
+project_key = "CAE"
 team = "Structural Analysis"
+team_id = 400
 timeout_seconds = 30
+page_size = 100
+max_retries = 2
+closed_lookback_days = 30
 
 [fields]
 team = "customfield_12110"
@@ -26,7 +30,11 @@ placeholders = ["Requester"]
 [issues]
 request_types = ["Epic", "Risk", "Issue"]
 task_types = ["Task"]
-parent_link_phrases = ["is child of", "is caused by"]
+epic_type = "Epic"
+task_parent_phrases = ["is child of"]
+request_parent_phrases = ["is caused by"]
+request_wrong_epic_phrases = ["is child of", "created by"]
+excluded_types = ["Sub-task"]
 
 [boards.project_lead]
 NEW = "New"

@@ -32,9 +32,34 @@ Settings have no field for passwords, tokens or keys; a `token` or `password` ke
 - `working_time.days_per_week = 5` and the `risk` thresholds are assumptions to be confirmed.
 - `hours_per_day = 8` is confirmed for the VE Jira instance.
 
+## Retrieval
+
+`jira.team_id` (default 400) is the Jira team the query selects. The Team field is a team picker, so Jira matches it by numeric ID and a query by name returns nothing; `jira.team` is kept as the readable name. `jira.page_size` (default 100, 1 to 1000) is how many issues each search request asks for. `jira.max_retries` (default 2, not negative) is how many times a transient failure (timeout, connection error, HTTP 429, 502, 503, 504) is retried. `jira.closed_lookback_days` (default 30, not negative) limits closed tickets to those updated within that many days; open tickets are always included.
+
+```toml
+[jira]
+closed_lookback_days = 60
+```
+
 ## Issue hierarchy
 
-`issues.request_types` (Epic, Risk, Issue) and `issues.task_types` (Task) classify tickets; a type may not be in both lists. `fields.epic_link` is `customfield_10001`. `issues.parent_link_phrases` lists the issue link texts, exactly as Jira shows them on a Task (case-insensitive), that mean "this Task belongs to that Risk or Issue": by default `is child of` and `is caused by`. Add other phrases your team uses here; a Task linked by an unlisted phrase has no parent.
+`issues.request_types` (Epic, Risk, Issue) and `issues.task_types` (Task) classify tickets; a type may not be in both lists. `issues.epic_type` (Epic) names the Epic type. `fields.epic_link` is `customfield_10001`.
+
+Parent rules use the link text exactly as Jira shows it on the ticket (case-insensitive):
+
+- `issues.task_parent_phrases` (default `is child of`): a Task belongs to the Risk or Issue it is linked to this way. A Task's Epic comes from the Epic Link field.
+- `issues.request_parent_phrases` (default `is caused by`): a Risk or Issue belongs to the Epic it is linked to this way.
+
+"mentions" links are never used, because any ticket ID typed in a free-text field creates one. Add other phrases your team uses to these lists, for example in `settings.local.toml`:
+
+```toml
+[issues]
+task_parent_phrases = ["is child of", "is part of"]
+```
+
+Data quality settings: `issues.excluded_types` (default `Sub-task`) lists issue types the team search leaves out of the dashboard; set it to an empty list to include everything. `issues.request_wrong_epic_phrases` (default `is child of`, `created by`) are the link texts that flag a Risk or Issue as wrongly linked to an Epic (the correct text is `is caused by`). See [data-quality.md](data-quality.md).
+
+The former single key `issues.parent_link_phrases` no longer exists; a file that still sets it fails to load. `jira.project_key` is the Jira project key (`CAE`); `VE_CAE` is only the project's name.
 
 ## Board maps
 
