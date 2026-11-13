@@ -137,6 +137,12 @@ def test_issue_hierarchy_defaults() -> None:
     assert s.fields.epic_link == "customfield_10001"
 
 
+def test_dyson_project_field_default_and_override(tmp_path, monkeypatch) -> None:
+    assert get_settings().fields.dyson_project_list == "customfield_12901"
+    write_local(tmp_path, '[fields]\ndyson_project_list = "customfield_99999"\n', monkeypatch)
+    assert get_settings().fields.dyson_project_list == "customfield_99999"
+
+
 def test_data_quality_defaults() -> None:
     issues = get_settings().issues
     assert issues.excluded_types == ("Sub-task",)

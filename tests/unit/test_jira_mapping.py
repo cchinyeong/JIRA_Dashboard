@@ -257,6 +257,48 @@ def test_reconfigured_field_id(settings) -> None:
     assert map_issue(payload, changed).target_end_date == date(2026, 12, 1)
 
 
+def with_projects(settings, value):
+    payload = load("issue_cae_1558.json")
+    payload["fields"]["customfield_12901"] = value
+    return map_issue(payload, settings)
+
+
+def option(name: str) -> dict:
+    return {"self": "https://x/customFieldOption/1", "value": name, "id": "1", "disabled": False}
+
+
+def test_dyson_projects_several_options(settings) -> None:
+    ticket = with_projects(settings, [option("898B"), option("915")])
+    assert ticket.dyson_projects == ("898B", "915")
+
+
+def test_dyson_projects_empty_null_and_missing(settings) -> None:
+    assert with_projects(settings, []).dyson_projects == ()
+    assert with_projects(settings, None).dyson_projects == ()
+    assert map_issue(load("issue_cae_1558.json"), settings).dyson_projects == ()
+
+
+def test_dyson_projects_blank_repeated_and_plain_strings(settings) -> None:
+    value = [option(" 898B "), option("898B"), option("  "), option("915"), "1000", None, 5]
+    assert with_projects(settings, value).dyson_projects == ("898B", "915", "1000")
+
+
+def test_dyson_projects_option_named_unknown_is_a_value(settings) -> None:
+    assert with_projects(settings, [option("unknown")]).dyson_projects == ("unknown",)
+
+
+def test_dyson_projects_malformed_scalar_is_empty(settings) -> None:
+    assert with_projects(settings, "898B").dyson_projects == ()
+
+
+def test_dyson_projects_reconfigured_field_id(settings) -> None:
+    payload = load("issue_cae_1558.json")
+    payload["fields"]["customfield_77777"] = [option("977")]
+    fields = settings.fields.model_copy(update={"dyson_project_list": "customfield_77777"})
+    changed = settings.model_copy(update={"fields": fields})
+    assert map_issue(payload, changed).dyson_projects == ("977",)
+
+
 def test_unsupported_status_maps_to_unknown(settings) -> None:
     payload = load("issue_cae_1558.json")
     payload["fields"]["status"]["name"] = "Implemented"

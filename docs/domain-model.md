@@ -16,6 +16,7 @@ Board columns are display labels only and never drive logic. The Project Lead bo
 
 - `domain` is the Jira Simulation Type (`Domain.from_simulation_type`): "None"/empty give `UNSPECIFIED`, unknown values give `OTHER`.
 - `request_drivers` are the Jira Components (for example Risk, Issue, Verification).
+- `dyson_projects` are the options selected in Jira's "Dyson Project List" (a tuple, possibly several, empty when unknown).
 - The Jira Team field is used to scope which tickets are fetched, not stored as the domain.
 
 ## Units and requester

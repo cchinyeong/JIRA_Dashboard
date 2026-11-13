@@ -13,15 +13,19 @@ Running the application SHALL open the main window and start a refresh automatic
 - **THEN** the window is shown and a refresh begins without user action
 
 ### Requirement: Jira not configured
-When the Jira address is not configured or no token is stored, the window SHALL say what is missing and where to set it, and MUST NOT crash or show a technical error.
+When the Jira address is not configured or no token is stored, the window SHALL say what is missing, MUST NOT crash or show a technical error, and SHALL open the Jira setup dialog so the user can configure it. The window MUST also offer a "Jira setup…" action at any time.
 
 #### Scenario: Placeholder address
 - **WHEN** the application starts with the placeholder Jira address
-- **THEN** the window shows a message naming the setting to configure and no table data
+- **THEN** the window shows a message naming what to configure and no table data, and the setup dialog opens
 
 #### Scenario: No token stored
 - **WHEN** the first refresh reports that no token is stored
-- **THEN** the window shows that message with how to store the token
+- **THEN** the window shows that message and offers the setup dialog
+
+#### Scenario: Setup completed
+- **WHEN** the user saves valid settings in the dialog
+- **THEN** the message disappears and a refresh starts
 
 ### Requirement: Ticket table
 The window SHALL show the tickets of the latest refresh in a read-only table with the columns Key, Summary, Type, Status, Priority, Assignee, Domain, Sprint, Target end, Remaining (days), Findings and Updated. A missing value MUST be shown as "Unknown" in a visibly different style, and MUST NOT be guessed.
@@ -91,11 +95,15 @@ When a refresh fails, the table SHALL keep the previous data and the window SHAL
 - **THEN** the failure banner is removed
 
 ### Requirement: Status bar summary
-The status bar SHALL show the number of tickets, the time of the last successful refresh, the number of unreadable tickets and the number of tickets with findings.
+The status bar SHALL show the number of tickets, the time of the last successful refresh, the number of unreadable tickets and the number of tickets with findings. While a filter is active it SHALL show the number of tickets shown out of the total.
 
 #### Scenario: After a refresh
 - **WHEN** a refresh succeeds with 353 tickets, 73 with findings and none unreadable
 - **THEN** the status bar shows those counts and the refresh time
+
+#### Scenario: Filter active
+- **WHEN** a filter leaves 40 of 353 tickets
+- **THEN** the status bar shows "40 of 353 tickets"
 
 ### Requirement: Open in Jira
 The window SHALL open the selected ticket in the web browser through a toolbar action, a context menu entry and a double-click. It MUST open only the link the ticket service allows, and the action MUST be unavailable when there is none.

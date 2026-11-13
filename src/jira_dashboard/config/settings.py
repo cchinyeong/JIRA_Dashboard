@@ -65,6 +65,7 @@ class FieldMapping(_Section):
     request_drivers: FieldId
     epic_link: FieldId | None = None
     actual_start: FieldId | None = None
+    dyson_project_list: FieldId | None = None
 
 
 class WorkingTime(_Section):

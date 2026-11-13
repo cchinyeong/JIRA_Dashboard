@@ -18,6 +18,7 @@ class Ticket:
     issue_type: str | None = None
     domain: Domain = Domain.UNSPECIFIED
     request_drivers: tuple[str, ...] = ()
+    dyson_projects: tuple[str, ...] = ()
     assignee: User | None = None
     reporter: User | None = None
     requester: str | None = None

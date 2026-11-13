@@ -156,6 +156,18 @@ def _names(items: Sequence[Mapping[str, Any]] | None) -> tuple[str, ...]:
     return tuple(item["name"] for item in items or [])
 
 
+def _dyson_projects(value: Any) -> tuple[str, ...]:
+    """Option names of the multi-select field; blanks dropped, repeats kept once."""
+    if not isinstance(value, list | tuple):
+        return ()
+    names: list[str] = []
+    for item in value:
+        name = item.get("value") if isinstance(item, Mapping) else item
+        if isinstance(name, str) and (name := name.strip()) and name not in names:
+            names.append(name)
+    return tuple(names)
+
+
 def map_issue(payload: Mapping[str, Any], settings: Settings) -> Ticket:
     key = str(payload.get("key", "?"))
     try:
@@ -218,6 +230,7 @@ def _map_issue(payload: Mapping[str, Any], settings: Settings) -> Ticket:
         issue_type=issue_type,
         domain=Domain.from_simulation_type(simulation_text),
         request_drivers=_names(fields.get(ids.request_drivers)),
+        dyson_projects=_dyson_projects(fields.get(ids.dyson_project_list)),
         assignee=map_user(fields.get("assignee")),
         reporter=map_user(fields.get("reporter")),
         requester=extract_requester(description, settings.requester),

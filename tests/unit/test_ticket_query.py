@@ -149,6 +149,66 @@ def test_assignee_facet_counts_and_unknown_last() -> None:
     assert [v.value for v in values] == ["ann", "bob", None]
 
 
+def test_ticket_in_several_dyson_projects_matches_any_of_them() -> None:
+    tickets = [
+        make("CAE-1", dyson_projects=("898B", "915")),
+        make("CAE-2", dyson_projects=("915",)),
+        make("CAE-3", dyson_projects=("1000",)),
+        make("CAE-4"),
+    ]
+    assert keys(filter_tickets(tickets, TicketFilter(dyson_projects=frozenset({"915"})))) == [
+        "CAE-1",
+        "CAE-2",
+    ]
+    either = TicketFilter(dyson_projects=frozenset({"898B", "1000"}))
+    assert keys(filter_tickets(tickets, either)) == ["CAE-1", "CAE-3"]
+
+
+def test_unknown_dyson_project_is_selectable() -> None:
+    tickets = [make("CAE-1", dyson_projects=("915",)), make("CAE-2")]
+    unknown = TicketFilter(dyson_projects=frozenset({None}))
+    assert keys(filter_tickets(tickets, unknown)) == ["CAE-2"]
+    mixed = TicketFilter(dyson_projects=frozenset({None, "915"}))
+    assert keys(filter_tickets(tickets, mixed)) == ["CAE-1", "CAE-2"]
+
+
+def test_dyson_project_combines_with_other_criteria() -> None:
+    tickets = [
+        make("CAE-1", dyson_projects=("898B",), status=TicketStatus.IN_PROGRESS),
+        make("CAE-2", dyson_projects=("898B",)),
+        make("CAE-3", dyson_projects=("915",), status=TicketStatus.IN_PROGRESS),
+    ]
+    criteria = TicketFilter(
+        dyson_projects=frozenset({"898B"}), statuses=frozenset({TicketStatus.IN_PROGRESS})
+    )
+    assert keys(filter_tickets(tickets, criteria)) == ["CAE-1"]
+
+
+def test_dyson_project_facet_counts_each_project_and_orders_naturally() -> None:
+    tickets = [
+        make("CAE-1", dyson_projects=("898B", "915")),
+        make("CAE-2", dyson_projects=("915",)),
+        make("CAE-3", dyson_projects=("1000", "Transformation & Improvement")),
+        make("CAE-4", dyson_projects=("unknown",)),
+        make("CAE-5"),
+    ]
+    values = facets(tickets)["dyson_project"]
+    assert [(v.label, v.count) for v in values] == [
+        ("898B", 1),
+        ("915", 2),
+        ("1000", 1),
+        ("Transformation & Improvement", 1),
+        ("unknown", 1),
+        (UNKNOWN_LABEL, 1),
+    ]
+    assert values[-1].value is None and values[-2].value == "unknown"
+
+
+def test_dyson_project_facet_has_no_unknown_entry_when_all_have_projects() -> None:
+    values = facets([make("CAE-1", dyson_projects=("915",))])["dyson_project"]
+    assert [v.label for v in values] == ["915"]
+
+
 def test_other_facets() -> None:
     tickets = [
         make("CAE-1", sprint=Sprint(1, "Sprint B", "ACTIVE"), domain=Domain.STATIC),

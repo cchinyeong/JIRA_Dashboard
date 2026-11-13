@@ -293,3 +293,16 @@ def test_check_fields(settings) -> None:
     assert findings["epic_link"].status == "missing"
     assert findings["epic_link"].field_id == "customfield_10001"
     assert findings["sprint"].status == "ok"
+
+
+def test_dyson_project_field_is_requested_and_checked(settings) -> None:
+    assert "customfield_12901" in requested_fields(settings)
+    findings = {
+        f.setting: f
+        for f in check_fields(settings, [{"id": "customfield_12901", "name": "Dyson Project List"}])
+    }
+    assert findings["dyson_project_list"].status == "ok"
+    renamed = check_fields(settings, [{"id": "customfield_12901", "name": "Something else"}])
+    assert {f.setting: f.status for f in renamed}["dyson_project_list"] == "name_mismatch"
+    missing = {f.setting: f for f in check_fields(settings, [])}
+    assert missing["dyson_project_list"].status == "missing"

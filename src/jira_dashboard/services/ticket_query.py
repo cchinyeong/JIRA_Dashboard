@@ -63,6 +63,7 @@ def _domain(ticket: Ticket) -> Domain | None:
 
 EXTRACTORS: dict[str, Callable[[Ticket], object]] = {
     "project": lambda t: t.project.key,
+    "dyson_project": lambda t: t.dyson_projects,
     "domain": _domain,
     "assignee": lambda t: t.assignee.username if t.assignee else None,
     "sprint": lambda t: t.sprint.name if t.sprint else None,
@@ -72,9 +73,27 @@ EXTRACTORS: dict[str, Callable[[Ticket], object]] = {
 }
 
 
+def _values(field_name: str, ticket: Ticket) -> tuple[object, ...]:
+    """The ticket's values for a facet; a multi-valued field gives all, none gives unknown."""
+    value = EXTRACTORS[field_name](ticket)
+    if isinstance(value, tuple):
+        return value or (None,)
+    return (value,)
+
+
+def _natural_text(text: str) -> list[tuple[int, int | str]]:
+    """Orders numbers by value before names: 898B, 915, 1000, then Transformation."""
+    parts = re.split(r"(\d+)", text)
+    return [(0, int(p)) if p.isdigit() else (1, p.lower()) for p in parts if p]
+
+
+NATURAL_FACETS = frozenset({"dyson_project"})
+
+
 @dataclass(frozen=True, slots=True)
 class TicketFilter:
     projects: frozenset = frozenset()
+    dyson_projects: frozenset = frozenset()
     domains: frozenset = frozenset()
     assignees: frozenset = frozenset()
     sprints: frozenset = frozenset()
@@ -87,6 +106,7 @@ class TicketFilter:
 
 _CRITERIA = (
     ("projects", "project"),
+    ("dyson_projects", "dyson_project"),
     ("domains", "domain"),
     ("assignees", "assignee"),
     ("sprints", "sprint"),
@@ -99,7 +119,7 @@ _CRITERIA = (
 def matches(ticket: Ticket, criteria: TicketFilter) -> bool:
     for attribute, field_name in _CRITERIA:
         allowed = getattr(criteria, attribute)
-        if allowed and EXTRACTORS[field_name](ticket) not in allowed:
+        if allowed and not allowed.intersection(_values(field_name, ticket)):
             return False
     needle = criteria.text.strip().lower()
     if needle:
@@ -136,20 +156,23 @@ def _label(field_name: str, ticket: Ticket, value: object) -> str:
 def facets(tickets: Iterable[Ticket]) -> dict[str, list[FacetValue]]:
     tickets = list(tickets)
     result: dict[str, list[FacetValue]] = {}
-    for field_name, extract in EXTRACTORS.items():
+    for field_name in EXTRACTORS:
         counts: Counter = Counter()
         labels: dict[object, str] = {}
         raw_unknown: set[str] = set()
         for ticket in tickets:
-            value = extract(ticket)
-            counts[value] += 1
-            labels.setdefault(value, _label(field_name, ticket, value))
-            if field_name == "status" and value is TicketStatus.UNKNOWN and ticket.raw_status:
-                raw_unknown.add(ticket.raw_status)
+            for value in _values(field_name, ticket):
+                counts[value] += 1
+                labels.setdefault(value, _label(field_name, ticket, value))
+                if field_name == "status" and value is TicketStatus.UNKNOWN and ticket.raw_status:
+                    raw_unknown.add(ticket.raw_status)
         if TicketStatus.UNKNOWN in labels and raw_unknown:
             labels[TicketStatus.UNKNOWN] = f"Unknown ({', '.join(sorted(raw_unknown))})"
         values = [FacetValue(value, labels[value], count) for value, count in counts.items()]
-        values.sort(key=lambda item: (item.value is None, item.label.lower()))
+        if field_name in NATURAL_FACETS:
+            values.sort(key=lambda item: (item.value is None, _natural_text(item.label)))
+        else:
+            values.sort(key=lambda item: (item.value is None, item.label.lower()))
         result[field_name] = values
     return result
 

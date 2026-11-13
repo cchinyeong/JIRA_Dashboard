@@ -88,7 +88,12 @@ def test_minimal_ticket_defaults() -> None:
     assert ticket.requester is None
     assert ticket.assignee is None
     assert ticket.request_drivers == ()
+    assert ticket.dyson_projects == ()
     assert ticket.domain is Domain.UNSPECIFIED
+
+
+def test_ticket_keeps_several_dyson_projects_in_order() -> None:
+    assert make_ticket(dyson_projects=("898B", "915")).dyson_projects == ("898B", "915")
 
 
 def test_ticket_full_fields() -> None:

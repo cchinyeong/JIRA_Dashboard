@@ -18,6 +18,7 @@ estimated_effort = "timeoriginalestimate"
 remaining_effort = "timeestimate"
 request_drivers = "components"
 epic_link = "customfield_10001"
+dyson_project_list = "customfield_12901"
 
 [working_time]
 hours_per_day = 8

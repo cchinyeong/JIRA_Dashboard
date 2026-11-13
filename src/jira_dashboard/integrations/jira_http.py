@@ -39,6 +39,7 @@ FIELD_NAME_HINTS = {
     "target_end": "target end",
     "sprint": "sprint",
     "epic_link": "epic link",
+    "dyson_project_list": "dyson project",
 }
 
 
@@ -74,6 +75,8 @@ def requested_fields(settings: Settings) -> list[str]:
     ]
     if ids.epic_link:
         configured.append(ids.epic_link)
+    if ids.dyson_project_list:
+        configured.append(ids.dyson_project_list)
     return list(dict.fromkeys([*ISSUE_FIELDS, *configured]))
 
 
@@ -175,6 +178,9 @@ class JiraHttp:
     def get_fields(self) -> list[dict[str, Any]]:
         return self._get("/rest/api/2/field")
 
+    def get_myself(self) -> dict[str, Any]:
+        return self._get("/rest/api/2/myself")
+
     def search(self, jql: str, fields: Sequence[str]) -> Iterator[dict[str, Any]]:
         start = 0
         while True:
@@ -213,6 +219,7 @@ def check_fields(settings: Settings, jira_fields: list[dict[str, Any]]) -> list[
         "estimated_effort": ids.estimated_effort,
         "remaining_effort": ids.remaining_effort,
         "request_drivers": ids.request_drivers,
+        "dyson_project_list": ids.dyson_project_list,
     }
     findings = []
     for setting, field_id in configured.items():

@@ -7,7 +7,13 @@ from PySide6.QtCore import QModelIndex, Qt
 from ticket_factory import make_ticket
 
 from jira_dashboard.models import Finding, FindingCode
-from jira_dashboard.services.ticket_query import make_snapshot, summarise
+from jira_dashboard.services.ticket_query import (
+    facets,
+    filter_tickets,
+    group,
+    make_snapshot,
+    summarise,
+)
 from jira_dashboard.services.ticket_service import RefreshResult
 from jira_dashboard.ui.main_window import NOT_CONFIGURED_URL, MainWindow
 from jira_dashboard.ui.refresh_worker import RefreshWorker
@@ -19,6 +25,7 @@ LINK_BASE = "https://jira.example.test/browse/"
 class FakeService:
     def __init__(self, tickets=(), results=None, gate: threading.Event | None = None) -> None:
         self.tickets = list(tickets)
+        self.context: list = []
         self.results = list(results or [OK])
         self.gate = gate
         self.refresh_threads: list[threading.Thread] = []
@@ -30,11 +37,22 @@ class FakeService:
             assert self.gate.wait(5)
         return self.results.pop(0) if len(self.results) > 1 else self.results[0]
 
-    def list_tickets(self):
-        return list(self.tickets)
+    def list_tickets(self, criteria=None):
+        return filter_tickets(self.tickets, criteria)
+
+    def facets(self):
+        return facets(self.tickets)
+
+    def grouped(self, tickets=None):
+        snapshot = self.snapshot
+        return group(snapshot.tickets if tickets is None else tickets, snapshot)
+
+    @property
+    def snapshot(self):
+        return make_snapshot(self.tickets, self.context, refreshed_at=self.refreshed_at)
 
     def summary(self):
-        return summarise(make_snapshot(self.tickets, refreshed_at=self.refreshed_at))
+        return summarise(self.snapshot)
 
     def ticket_link(self, ticket):
         return None if ticket.jira_key == "CAE-NOLINK" else LINK_BASE + ticket.jira_key
@@ -130,7 +148,7 @@ def test_placeholder_address_shows_message_and_disables_refresh(qtbot) -> None:
     service = FakeService()
     window = make_window(qtbot, service, not_configured=NOT_CONFIGURED_URL)
     assert "jira.base_url" in window.message_label.text()
-    assert window.stack.currentWidget() is window.message_label
+    assert window.stack.currentWidget() is window.message_page
     assert not window.refresh_action.isEnabled()
     window.start_refresh()
     assert service.refresh_threads == []
@@ -144,7 +162,7 @@ def test_no_token_shows_instructions_and_keeps_refresh_available(qtbot) -> None:
     refresh(qtbot, window)
     assert "Secret 'jira-pat' is not stored." in window.message_label.text()
     assert "docs/security.md" in window.message_label.text()
-    assert window.stack.currentWidget() is window.message_label
+    assert window.stack.currentWidget() is window.message_page
     assert row_keys(window) == []
 
 
@@ -181,3 +199,54 @@ def test_table_is_read_only(qtbot, column) -> None:
     refresh(qtbot, window)
     index = window.table.model().index(0, column)
     assert not window.table.model().flags(index) & Qt.ItemFlag.ItemIsEditable
+
+
+def test_selecting_a_row_fills_the_details_panel(qtbot) -> None:
+    window = make_window(qtbot, FakeService([make_ticket("CAE-1", summary="First")]))
+    refresh(qtbot, window)
+    assert window.details.hint.isVisibleTo(window)
+    select_first(window)
+    assert window.details.title.text() == "CAE-1  First"
+    window.table.clearSelection()
+    assert window.details.hint.isVisibleTo(window)
+
+
+def test_details_panel_shows_loaded_parent(qtbot) -> None:
+    service = FakeService([make_ticket("CAE-2", parent_key="CAE-1")])
+    service.context = [make_ticket("CAE-1", summary="Epic summary", issue_type="Epic")]
+    window = make_window(qtbot, service)
+    refresh(qtbot, window)
+    select_first(window)
+    assert window.details.value("Parent") == "CAE-1 · Epic · Epic summary"
+
+
+def test_details_button_opens_the_allowed_link(qtbot) -> None:
+    opened: list[str] = []
+    window = make_window(qtbot, FakeService([make_ticket("CAE-1")]), opener=opened.append)
+    refresh(qtbot, window)
+    select_first(window)
+    assert window.details.open_button.isEnabled()
+    window.details.open_button.click()
+    assert opened == [LINK_BASE + "CAE-1"]
+
+
+def test_selection_kept_across_refresh_with_new_values(qtbot) -> None:
+    service = FakeService([make_ticket("CAE-1", priority="High")], results=[OK, OK])
+    window = make_window(qtbot, service)
+    refresh(qtbot, window)
+    select_first(window)
+    service.tickets = [make_ticket("CAE-0"), make_ticket("CAE-1", priority="Low")]
+    refresh(qtbot, window)
+    assert window._selected_ticket().jira_key == "CAE-1"
+    assert window.details.value("Priority") == "Low"
+
+
+def test_selection_cleared_when_ticket_disappears(qtbot) -> None:
+    service = FakeService([make_ticket("CAE-1")], results=[OK, OK])
+    window = make_window(qtbot, service)
+    refresh(qtbot, window)
+    select_first(window)
+    service.tickets = [make_ticket("CAE-2")]
+    refresh(qtbot, window)
+    assert window._selected_ticket() is None
+    assert window.details.hint.isVisibleTo(window)

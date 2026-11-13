@@ -21,6 +21,8 @@ Equivalent environment variable:
 $env:JIRA_DASHBOARD_JIRA__BASE_URL = "https://jira.example.com"
 ```
 
+The **Jira setup** dialog (see [dashboard.md](dashboard.md)) writes `jira.base_url` into this local file for you. It changes only that line, keeps comments and every other setting, and refuses to touch a file it cannot update safely (invalid TOML, `jira` as an inline table, `base_url` twice). The address must use `https`, have a host, and contain no user name, password, path or query. Because environment variables rank higher, the dialog does not save while `JIRA_DASHBOARD_JIRA__BASE_URL` is set. The file is in the working directory, so start the application from the same folder each time (or set `JIRA_DASHBOARD_CONFIG_FILE`).
+
 ## Secrets
 
 Settings have no field for passwords, tokens or keys; a `token` or `password` key is rejected as unknown. Credentials are handled separately (see the secrets capability).
@@ -43,7 +45,7 @@ closed_lookback_days = 60
 
 ## Issue hierarchy
 
-`issues.request_types` (Epic, Risk, Issue) and `issues.task_types` (Task) classify tickets; a type may not be in both lists. `issues.epic_type` (Epic) names the Epic type. `fields.epic_link` is `customfield_10001`.
+`issues.request_types` (Epic, Risk, Issue) and `issues.task_types` (Task) classify tickets; a type may not be in both lists. `issues.epic_type` (Epic) names the Epic type. `fields.epic_link` is `customfield_10001`. `fields.dyson_project_list` is `customfield_12901` (the multi-select "Dyson Project List"); it is optional, and when it is unset no project is read.
 
 Parent rules use the link text exactly as Jira shows it on the ticket (case-insensitive):
 

@@ -1,21 +1,21 @@
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
 from typing import Any
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex, Qt
-from PySide6.QtGui import QBrush, QColor, QFont
 
-from jira_dashboard.models import Domain, Ticket, TicketStatus
+from jira_dashboard.models import Ticket, TicketStatus
+from jira_dashboard.ui.formatting import (
+    UNKNOWN,
+    domain_value,
+    format_date,
+    format_days,
+    status_text,
+)
+from jira_dashboard.ui.styling import finding_tooltip, style_role
 
-UNKNOWN = "Unknown"
 SORT_ROLE = Qt.ItemDataRole.UserRole + 1
 TICKET_ROLE = Qt.ItemDataRole.UserRole + 2
-FINDING_TINT = QBrush(QColor(255, 244, 214))
-UNKNOWN_BRUSH = QBrush(QColor(128, 128, 128))
-# Tinted rows are light in every theme, so they need their own dark text colours.
-TINTED_TEXT_BRUSH = QBrush(QColor(30, 30, 30))
-TINTED_UNKNOWN_BRUSH = QBrush(QColor(110, 110, 110))
 
 _KEY_PATTERN = re.compile(r"^(.*?)-(\d+)$")
 _Value = tuple[bool, Any]
@@ -30,31 +30,11 @@ class Column:
     text: Any  # raw value -> display text
 
 
-def _format_date(value: date | datetime) -> str:
-    return f"{value.day:02d} {value:%b %Y}"
-
-
-def _format_days(value: float) -> str:
-    return f"{value:.1f}".rstrip("0").rstrip(".")
-
-
 def _key_sort(ticket: Ticket) -> tuple[str, int]:
     match = _KEY_PATTERN.match(ticket.jira_key)
     if match is None:
         return (ticket.jira_key, 0)
     return (match.group(1), int(match.group(2)))
-
-
-def _status_text(ticket: Ticket) -> str:
-    if ticket.status is TicketStatus.UNKNOWN:
-        return f"{UNKNOWN} ({ticket.raw_status})" if ticket.raw_status else UNKNOWN
-    return ticket.status.value.replace("_", " ").title()
-
-
-def _domain(ticket: Ticket) -> str | None:
-    if ticket.domain is Domain.UNSPECIFIED:
-        return None
-    return ticket.domain.value.title()
 
 
 COLUMNS: tuple[Column, ...] = (
@@ -64,28 +44,29 @@ COLUMNS: tuple[Column, ...] = (
     Column("Status", lambda t: None if t.status is TicketStatus.UNKNOWN else t.status, None),
     Column("Priority", lambda t: t.priority, str),
     Column("Assignee", lambda t: t.assignee.display_name if t.assignee else None, str),
-    Column("Domain", _domain, str),
+    Column("Domain", domain_value, str),
     Column("Sprint", lambda t: t.sprint.name if t.sprint else None, str),
-    Column("Target end", lambda t: t.target_end_date, _format_date),
-    Column("Remaining (days)", lambda t: t.remaining_effort, _format_days),
+    Column("Target end", lambda t: t.target_end_date, format_date),
+    Column("Remaining (days)", lambda t: t.remaining_effort, format_days),
     Column("Findings", lambda t: len(t.findings) or None, str),
-    Column("Updated", lambda t: t.updated_date, _format_date),
+    Column("Updated", lambda t: t.updated_date, format_date),
 )
 KEY_COLUMN = 0
 STATUS_COLUMN = 3
 FINDINGS_COLUMN = 10
 
 
-def _tooltip(ticket: Ticket) -> str | None:
-    if not ticket.findings:
-        return None
-    lines = []
-    for finding in ticket.findings:
-        line = f"• {finding.message}"
-        if finding.suggestion:
-            line += f"\n   Suggestion: {finding.suggestion}"
-        lines.append(line)
-    return "\n".join(lines)
+def cell_unknown(ticket: Ticket, column: int) -> bool:
+    return COLUMNS[column].value(ticket) is None and column != FINDINGS_COLUMN
+
+
+def cell_text(ticket: Ticket, column: int) -> str:
+    if column == STATUS_COLUMN:
+        return status_text(ticket)
+    raw = COLUMNS[column].value(ticket)
+    if raw is None:
+        return "" if column == FINDINGS_COLUMN else UNKNOWN
+    return COLUMNS[column].text(raw)
 
 
 class TicketTableModel(QAbstractTableModel):
@@ -125,15 +106,10 @@ class TicketTableModel(QAbstractTableModel):
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
     def _is_unknown(self, ticket: Ticket, column: int) -> bool:
-        return COLUMNS[column].value(ticket) is None and column != FINDINGS_COLUMN
+        return cell_unknown(ticket, column)
 
     def _display(self, ticket: Ticket, column: int) -> str:
-        if column == STATUS_COLUMN:
-            return _status_text(ticket)
-        raw = COLUMNS[column].value(ticket)
-        if raw is None:
-            return "" if column == FINDINGS_COLUMN else UNKNOWN
-        return COLUMNS[column].text(raw)
+        return cell_text(ticket, column)
 
     def sort_value(self, ticket: Ticket, column: int) -> _Value:
         if column == KEY_COLUMN:
@@ -159,16 +135,5 @@ class TicketTableModel(QAbstractTableModel):
         if role == TICKET_ROLE:
             return ticket
         if role == Qt.ItemDataRole.ToolTipRole:
-            return _tooltip(ticket)
-        if role == Qt.ItemDataRole.BackgroundRole and ticket.findings:
-            return FINDING_TINT
-        unknown = self._is_unknown(ticket, column)
-        if role == Qt.ItemDataRole.FontRole and unknown:
-            font = QFont()
-            font.setItalic(True)
-            return font
-        if role == Qt.ItemDataRole.ForegroundRole:
-            if ticket.findings:
-                return TINTED_UNKNOWN_BRUSH if unknown else TINTED_TEXT_BRUSH
-            return UNKNOWN_BRUSH if unknown else None
-        return None
+            return finding_tooltip(ticket)
+        return style_role(role, ticket, self._is_unknown(ticket, column))
