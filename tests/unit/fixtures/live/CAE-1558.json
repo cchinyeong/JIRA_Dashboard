@@ -1,0 +1,93 @@
+{
+  "key": "CAE-1558",
+  "fields": {
+    "summary": "Sample ticket CAE-1558",
+    "description": "{panel:title=PIC (Requester - Full Name)}\nPerson A.\n{panel}\n{panel:title=Background}\n<redacted>\n{panel}\n{panel:title=Objectives}\n<redacted>\n{panel}\n{panel:title=Key Findings}\n<redacted>\n{panel}\n{panel:title=Conclusion}\n<redacted>\n{panel}",
+    "project": {
+      "key": "CAE",
+      "name": "VE_CAE"
+    },
+    "issuetype": {
+      "name": "Risk"
+    },
+    "priority": {
+      "name": "Major"
+    },
+    "status": {
+      "name": "In Progress"
+    },
+    "components": [
+      {
+        "name": "Risk"
+      }
+    ],
+    "customfield_15253": {
+      "value": "Static"
+    },
+    "customfield_12112": "2026-10-30",
+    "customfield_12113": "2026-11-11",
+    "customfield_10000": null,
+    "timeoriginalestimate": null,
+    "timeestimate": null,
+    "assignee": {
+      "name": "user-1",
+      "displayName": "User 1",
+      "emailAddress": "user-1@example.com"
+    },
+    "reporter": {
+      "name": "user-1",
+      "displayName": "User 1",
+      "emailAddress": "user-1@example.com"
+    },
+    "created": "2026-10-28T02:46:14.923+0000",
+    "updated": "2026-11-05T07:21:31.723+0000",
+    "issuelinks": [
+      {
+        "type": {
+          "name": "Mention",
+          "inward": "is mentioned by",
+          "outward": "mentions"
+        },
+        "outwardIssue": {
+          "key": "LDT-1497",
+          "fields": {
+            "issuetype": {
+              "name": "Issue"
+            }
+          }
+        }
+      },
+      {
+        "type": {
+          "name": "Mention",
+          "inward": "is mentioned by",
+          "outward": "mentions"
+        },
+        "outwardIssue": {
+          "key": "LDT-1597",
+          "fields": {
+            "issuetype": {
+              "name": "Issue"
+            }
+          }
+        }
+      },
+      {
+        "type": {
+          "name": "Mention",
+          "inward": "is mentioned by",
+          "outward": "mentions"
+        },
+        "inwardIssue": {
+          "key": "CAE-1559",
+          "fields": {
+            "issuetype": {
+              "name": "Task"
+            }
+          }
+        }
+      }
+    ],
+    "customfield_10001": null
+  }
+}
