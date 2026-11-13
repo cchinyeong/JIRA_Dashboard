@@ -1,0 +1,22 @@
+{
+  "key": "CAE-1558",
+  "fields": {
+    "summary": "[S] - X285M-LX1389 - DVT - Wand Assy robustness assessment",
+    "description": "{panel:title=PIC (Requester - Full Name)|titleBGColor=#ffffcc}\nMohamad Faizal.\n{panel}\n{panel:title=Background|titleBGColor=#ffffcc}\nDesign improve is made on X248 and X620 but not X285K.\n{panel}\n{panel:title=Conclusion|titleBGColor=#ffffcc}\nTBC.\n{panel}",
+    "project": {"key": "VE_CAE", "name": "VE CAE"},
+    "issuetype": {"name": "Risk"},
+    "priority": {"name": "Major"},
+    "status": {"name": "In Progress"},
+    "components": [{"name": "Risk"}],
+    "customfield_15253": {"value": "Static"},
+    "customfield_12110": {"name": "Structural Analysis"},
+    "customfield_12112": "2026-10-30",
+    "customfield_12113": "2026-11-11",
+    "customfield_10000": null,
+    "assignee": {"name": "cchong", "displayName": "CY Chong", "emailAddress": "cy.chong@example.com"},
+    "reporter": {"name": "cchong", "displayName": "CY Chong", "emailAddress": "cy.chong@example.com"},
+    "created": "2026-10-28T10:46:00.000+0800",
+    "updated": "2026-11-05T15:21:00.000+0800",
+    "issuelinks": []
+  }
+}

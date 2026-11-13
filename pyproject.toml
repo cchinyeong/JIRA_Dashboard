@@ -1,0 +1,37 @@
+[project]
+name = "jira-dashboard"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Chong-ChinYeong_dyson", email = "chong.chinyeong@dyson.com" }
+]
+requires-python = ">=3.15"
+dependencies = [
+    "keyring",
+    "pydantic-settings",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[project.scripts]
+jira-dashboard = "jira_dashboard:main"
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"

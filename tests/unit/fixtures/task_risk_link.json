@@ -1,0 +1,25 @@
+{
+  "key": "CAE-1630",
+  "fields": {
+    "summary": "[S] Wand Assy robustness - run analysis",
+    "description": null,
+    "project": {"key": "VE_CAE", "name": "VE CAE"},
+    "issuetype": {"name": "Task"},
+    "status": {"name": "Planned"},
+    "customfield_15253": null,
+    "customfield_10000": null,
+    "timeoriginalestimate": 57600,
+    "created": "2026-11-03T09:00:00.000+0800",
+    "updated": "2026-11-03T09:00:00.000+0800",
+    "issuelinks": [
+      {
+        "type": {"name": "Hierarchy", "inward": "is child of", "outward": "is parent of"},
+        "inwardIssue": {"key": "CAE-1558", "fields": {"issuetype": {"name": "Risk"}}}
+      },
+      {
+        "type": {"name": "Relates", "inward": "relates to", "outward": "relates to"},
+        "outwardIssue": {"key": "CAE-1592", "fields": {"issuetype": {"name": "Issue"}}}
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "key": "CAE-1628",
+  "fields": {
+    "summary": "[D] X898C - BA - BPA drop - 1,000mm robustness assessment",
+    "description": "Run the drop simulation.",
+    "project": {"key": "VE_CAE", "name": "VE CAE"},
+    "issuetype": {"name": "Task"},
+    "priority": {"name": "Major"},
+    "status": {"name": "In Progress"},
+    "components": [{"name": "Verification"}],
+    "customfield_15253": {"value": "Dynamic"},
+    "customfield_12112": "2026-11-02",
+    "customfield_12113": "2026-11-13",
+    "customfield_10001": "CAE-1513",
+    "customfield_10000": [
+      "com.atlassian.greenhopper.service.sprint.Sprint@1a2b3c[id=11,rapidViewId=3,state=CLOSED,name=Dynamic Sprint (Wk43- 44 26),startDate=2026-10-19T09:00:00.000+08:00,endDate=2026-11-02T18:00:00.000+08:00,completeDate=2026-11-02T18:00:00.000+08:00,sequence=11]",
+      "com.atlassian.greenhopper.service.sprint.Sprint@4d5e6f[id=12,rapidViewId=3,state=ACTIVE,name=Static Sprint (Wk45- 46 26),startDate=2026-11-02T09:00:00.000+08:00,endDate=2026-11-16T18:00:00.000+08:00,completeDate=<null>,sequence=12]"
+    ],
+    "timeoriginalestimate": 115200,
+    "timeestimate": 115200,
+    "assignee": {"name": "cchong", "displayName": "CY Chong", "emailAddress": "cy.chong@example.com"},
+    "reporter": {"name": "cchong", "displayName": "CY Chong"},
+    "created": "2026-11-02T09:15:00.000+0800",
+    "updated": "2026-11-09T11:00:00.000+0800",
+    "issuelinks": []
+  }
+}

@@ -1,0 +1,55 @@
+[jira]
+base_url = "https://jira.invalid"
+project_key = "VE_CAE"
+team = "Structural Analysis"
+timeout_seconds = 30
+
+[fields]
+team = "customfield_12110"
+simulation_type = "customfield_15253"
+target_start = "customfield_12112"
+target_end = "customfield_12113"
+sprint = "customfield_10000"
+estimated_effort = "timeoriginalestimate"
+remaining_effort = "timeestimate"
+request_drivers = "components"
+epic_link = "customfield_10001"
+
+[working_time]
+hours_per_day = 8
+days_per_week = 5
+
+[requester]
+panel_title = "PIC (Requester - Full Name)"
+placeholders = ["Requester"]
+
+[issues]
+request_types = ["Epic", "Risk", "Issue"]
+task_types = ["Task"]
+parent_link_phrases = ["is child of", "is caused by"]
+
+[boards.project_lead]
+NEW = "New"
+BACKLOG = "Backlog"
+PLANNED = "Planned"
+IN_PROGRESS = "In Progress"
+REFINEMENT = "On Hold"
+CLOSED = "Closed"
+
+[boards.active_sprint]
+NEW = "To Do"
+BACKLOG = "On Hold"
+IN_PROGRESS = "In Progress"
+PLANNED = "In Review"
+CLOSED = "Done"
+
+[risk]
+amber_days_before_target = 3
+stale_after_days = 5
+
+[app]
+name = "VE Jira Operations Dashboard"
+
+[logging]
+level = "INFO"
+directory = "logs"
